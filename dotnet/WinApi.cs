@@ -11,7 +11,7 @@ internal enum MOD : UInt32
 	HOTKEY = 0x0312,
 }
 
-internal class User32
+sealed internal class User32
 {
 	[StructLayout(LayoutKind.Sequential)]
 	internal struct Msg 
@@ -61,7 +61,7 @@ internal class User32
 	internal static extern Int32 GetWindowText(IntPtr hWnd, StringBuilder lpString, Int32 nMaxCount);
 }
 
-internal class Kernel32
+sealed internal class Kernel32
 {
 	// https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
 	[DllImport("kernel32.dll")]

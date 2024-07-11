@@ -116,13 +116,13 @@ internal static class DesktopManager
 	}
 }
 
-internal class WindowInformation
+sealed internal class WindowInformation
 { // stores window informations
 	internal string Title { get; set; }
 	internal int Handle { get; set; }
 }
 
-internal class Desktop
+sealed internal class Desktop
 {
 	private static readonly Guid AppOnAllDesktops = new Guid("BB64D5B7-4DE3-4AB2-A87C-DB7601AEA7DC");
 	private static readonly Guid WindowOnAllDesktops = new Guid("C2DDEA68-66F2-4CF9-8264-1BFD00FBBBAC");
