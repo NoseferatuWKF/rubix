@@ -1,14 +1,17 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using WinAPI;
 
+// Credits to NickoTin: https://www.cyberforum.ru/blogs/105416/blog3671.html
+// Credits to MScholtes: https://github.com/MScholtes/VirtualDesktop
 namespace VDM;
 
 internal static class Guids
 {
-	public static readonly Guid CLSID_ImmersiveShell = new Guid("C2F03A33-21F5-47FA-B4BB-156362A2F239");
-	public static readonly Guid CLSID_VirtualDesktopManagerInternal = new Guid("C5E0CDCA-7B6E-41B2-9FC4-D93975CC467B");
-	public static readonly Guid CLSID_VirtualDesktopManager = new Guid("AA509086-5CA9-4C25-8F95-589D3C07B48A");
-	public static readonly Guid CLSID_VirtualDesktopPinnedApps = new Guid("B5A399E7-1C87-46B8-88E9-FC5747B171BD");
+	internal static readonly Guid CLSID_ImmersiveShell = new Guid("C2F03A33-21F5-47FA-B4BB-156362A2F239");
+	internal static readonly Guid CLSID_VirtualDesktopManagerInternal = new Guid("C5E0CDCA-7B6E-41B2-9FC4-D93975CC467B");
+	internal static readonly Guid CLSID_VirtualDesktopManager = new Guid("AA509086-5CA9-4C25-8F95-589D3C07B48A");
+	internal static readonly Guid CLSID_VirtualDesktopPinnedApps = new Guid("B5A399E7-1C87-46B8-88E9-FC5747B171BD");
 }
 
 [ComImport]
@@ -113,109 +116,76 @@ internal static class DesktopManager
 	}
 }
 
-public class WindowInformation
+internal class WindowInformation
 { // stores window informations
-	public string Title { get; set; }
-	public int Handle { get; set; }
+	internal string Title { get; set; }
+	internal int Handle { get; set; }
 }
 
-public class Desktop
+internal class Desktop
 {
-	// get process id to window handle
-	[DllImport("user32.dll")]
-	private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
-
-	// get thread id of current process
-	[DllImport("kernel32.dll")]
-	static extern uint GetCurrentThreadId();
-
-	// attach input to thread
-	[DllImport("user32.dll")]
-	static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
-	// get handle of active window
-	[DllImport("user32.dll")]
-	private static extern IntPtr GetForegroundWindow();
-
-	// try to set foreground window
-	[DllImport("user32.dll")]
-	[return: MarshalAs(UnmanagedType.Bool)]static extern bool SetForegroundWindow(IntPtr hWnd);
-
 	private static readonly Guid AppOnAllDesktops = new Guid("BB64D5B7-4DE3-4AB2-A87C-DB7601AEA7DC");
 	private static readonly Guid WindowOnAllDesktops = new Guid("C2DDEA68-66F2-4CF9-8264-1BFD00FBBBAC");
 
 	private IVirtualDesktop ivd;
 	private Desktop(IVirtualDesktop desktop) { this.ivd = desktop; }
 
-	public static Desktop FromIndex(int index)
+	internal static Desktop FromIndex(int index)
 	{ // return desktop object from index (-> index = 0..Count-1)
 		return new Desktop(DesktopManager.GetDesktop(index));
 	}
 
-	public static Desktop Create()
+	internal static Desktop Create()
 	{ // create a new desktop
 		return new Desktop(DesktopManager.VirtualDesktopManagerInternal.CreateDesktop());
 	}
 
-	public void MakeVisible()
+	internal void MakeVisible()
 	{ 
 		WindowInformation wi = FindWindow("Program Manager");
 
 		// activate desktop to prevent flashing icons in taskbar
 		int dummy;
-		uint DesktopThreadId = GetWindowThreadProcessId(new IntPtr(wi.Handle), out dummy);
-		uint ForegroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), out dummy);
-		uint CurrentThreadId = GetCurrentThreadId();
+		uint DesktopThreadId = User32.GetWindowThreadProcessId(new IntPtr(wi.Handle), out dummy);
+		uint ForegroundThreadId = User32.GetWindowThreadProcessId(User32.GetForegroundWindow(), out dummy);
+		uint CurrentThreadId = Kernel32.GetCurrentThreadId();
 
 		if ((DesktopThreadId != 0) && (ForegroundThreadId != 0) && (ForegroundThreadId != CurrentThreadId))
 		{
-			AttachThreadInput(DesktopThreadId, CurrentThreadId, true);
-			AttachThreadInput(ForegroundThreadId, CurrentThreadId, true);
-			SetForegroundWindow(new IntPtr(wi.Handle));
-			AttachThreadInput(ForegroundThreadId, CurrentThreadId, false);
-			AttachThreadInput(DesktopThreadId, CurrentThreadId, false);
+			User32.AttachThreadInput(DesktopThreadId, CurrentThreadId, true);
+			User32.AttachThreadInput(ForegroundThreadId, CurrentThreadId, true);
+			User32.SetForegroundWindow(new IntPtr(wi.Handle));
+			User32.AttachThreadInput(ForegroundThreadId, CurrentThreadId, false);
+			User32.AttachThreadInput(DesktopThreadId, CurrentThreadId, false);
 		}
 
 		DesktopManager.VirtualDesktopManagerInternal.SwitchDesktop(ivd);
 	}
 
 	// prepare callback function for window enumeration
-	private delegate bool CallBackPtr(int hwnd, int lParam);
-	private static CallBackPtr callBackPtr = Callback;
+	internal delegate bool CallBackPtr(int hwnd, int lParam);
+	internal static CallBackPtr callBackPtr = Callback;
 	// list of window informations
 	private static List<WindowInformation> WindowInformationList = new List<WindowInformation>();
-
-	// enumerate windows
-	[DllImport("User32.dll", SetLastError = true)]
-	[return: MarshalAs(UnmanagedType.Bool)]
-	private static extern bool EnumWindows(CallBackPtr lpEnumFunc, IntPtr lParam);
-
-	// get window title length
-	[DllImport("User32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-	private static extern int GetWindowTextLength(IntPtr hWnd);
-
-	// get window title
-	[DllImport("User32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-	private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
 	// callback function for window enumeration
 	private static bool Callback(int hWnd, int lparam)
 	{
-		int length = GetWindowTextLength((IntPtr)hWnd);
+		int length = User32.GetWindowTextLength((IntPtr)hWnd);
 		if (length > 0)
 		{
 			StringBuilder sb = new StringBuilder(length + 1);
-			if (GetWindowText((IntPtr)hWnd, sb, sb.Capacity) > 0)
+			if (User32.GetWindowText((IntPtr)hWnd, sb, sb.Capacity) > 0)
 			{ WindowInformationList.Add(new WindowInformation {Handle = hWnd, Title = sb.ToString()}); }
 		}
 		return true;
 	}
 
 	// find first window with string in title
-	public static WindowInformation FindWindow(string WindowTitle)
+	internal static WindowInformation FindWindow(string WindowTitle)
 	{
 		WindowInformationList = new List<WindowInformation>();
-		EnumWindows(callBackPtr, IntPtr.Zero);
+		User32.EnumWindows(callBackPtr, IntPtr.Zero);
 		WindowInformation result = WindowInformationList.Find(x => x.Title.IndexOf(WindowTitle, StringComparison.OrdinalIgnoreCase) >= 0);
 		return result;
 	}
