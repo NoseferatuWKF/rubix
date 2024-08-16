@@ -2,9 +2,7 @@
 using WinAPI;
 
 const UInt16 ASCII_OFFSET = 48; // 0
-
-// TODO: maybe make this configurable?
-const UInt16 DESKTOP_LIMIT = 5;
+const UInt16 DESKTOP_LIMIT = 9;
 
 // Loop over existing virtual desktops and registers hotkey for each index
 var desktops = DesktopManager.VirtualDesktopManagerInternal.GetCount(); 

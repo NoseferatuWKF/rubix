@@ -104,8 +104,6 @@ internal sealed class User32
 		internal IntPtr LParam;
 	}
 
-	internal delegate Boolean CallBackPtr(Int32 hwnd, Int32 lParam);
-
 	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
 	[DllImport("user32.dll")]
 	internal static extern Boolean RegisterHotKey(IntPtr hWnd, UInt32 id, MOD fsModifiers, UInt32 vk);
@@ -131,6 +129,7 @@ internal sealed class User32
 	[return: MarshalAs(UnmanagedType.Bool)]
 	internal static extern Boolean SetForegroundWindow(IntPtr hWnd);
 
+	internal delegate Boolean CallBackPtr(Int32 hwnd, Int32 lParam);
 	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows
 	[DllImport("User32.dll", SetLastError = true)]
 	[return: MarshalAs(UnmanagedType.Bool)]

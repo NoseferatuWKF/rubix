@@ -6,6 +6,10 @@ namespace VDM;
 
 internal static class DesktopManager
 {
+	internal static readonly IVirtualDesktopManagerInternal VirtualDesktopManagerInternal;
+	internal static readonly IVirtualDesktopManager VirtualDesktopManager;
+	internal static readonly IApplicationViewCollection ApplicationViewCollection;
+
 	static DesktopManager()
 	{
 		var shell = 
@@ -27,21 +31,22 @@ internal static class DesktopManager
 				typeof(IApplicationViewCollection).GUID);
 	}
 
-	internal static IVirtualDesktopManagerInternal VirtualDesktopManagerInternal;
-	internal static IVirtualDesktopManager VirtualDesktopManager;
-	internal static IApplicationViewCollection ApplicationViewCollection;
-
 	internal static IVirtualDesktop GetDesktop(int index)
-	{	// get desktop with index
-		int count = VirtualDesktopManagerInternal.GetCount();
+	{
+		var count = VirtualDesktopManagerInternal.GetCount();
+		
 		ArgumentOutOfRangeException.ThrowIfNegative(index);
 		ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, count);
 
-		IObjectArray desktops;
-		VirtualDesktopManagerInternal.GetDesktops(out desktops);
+		var desktops = CacheManager.GetDesktops();
 		object objdesktop;
+		if (desktops == null)
+		{
+			VirtualDesktopManagerInternal.GetDesktops(out desktops);
+			CacheManager.SetDesktops(desktops);
+		}
 		desktops.GetAt(index, typeof(IVirtualDesktop).GUID, out objdesktop);
-		Marshal.ReleaseComObject(desktops);
+
 		return (IVirtualDesktop) objdesktop;
 	}
 
@@ -64,79 +69,81 @@ internal static class DesktopManager
 			return;
 		}
 	}
-}
 
-internal sealed class Desktop
-{
-	private static IVirtualDesktop Instance;
+	public sealed record WindowInformation(int Handle, string Title);
 
-	private Desktop(IVirtualDesktop desktop) 
+	private sealed class Desktop
 	{
-		Desktop.Instance = desktop; 
-	}
+		private static IVirtualDesktop Instance;
 
-	internal static Desktop FromIndex(int index)
-	{ // return desktop object from index (-> index = 0..Count-1)
-		return new Desktop(DesktopManager.GetDesktop(index));
-	}
-
-	private record WindowInformation(int Handle, string Title);
-
-	internal void MakeVisible()
-	{ 
-		WindowInformation wi = FindFirstWindow("Program Manager");
-
-		// activate desktop to prevent flashing icons in taskbar
-		int dummy;
-		uint DesktopThreadId = User32.GetWindowThreadProcessId(
-			new IntPtr(wi.Handle), out dummy);
-		uint ForegroundThreadId = User32.GetWindowThreadProcessId(
-			User32.GetForegroundWindow(), out dummy);
-		uint CurrentThreadId = Kernel32.GetCurrentThreadId();
-
-		if ((DesktopThreadId != 0) &&
-			(ForegroundThreadId != 0) &&
-			(ForegroundThreadId != CurrentThreadId))
+		private Desktop(IVirtualDesktop desktop) 
 		{
-			User32.AttachThreadInput(DesktopThreadId, CurrentThreadId, true);
-			User32.AttachThreadInput(ForegroundThreadId, CurrentThreadId, true);
-			User32.SetForegroundWindow(new IntPtr(wi.Handle));
-			User32.AttachThreadInput(ForegroundThreadId, CurrentThreadId, false);
-			User32.AttachThreadInput(DesktopThreadId, CurrentThreadId, false);
+			Desktop.Instance = desktop; 
 		}
 
-		DesktopManager.VirtualDesktopManagerInternal.SwitchDesktop(Instance);
-	}
-
-	// prepare callback function for window enumeration
-	private static User32.CallBackPtr callBackPtr = Callback;
-	// list of window informations
-	private static List<WindowInformation> WindowInformationList = 
-		new List<WindowInformation>();
-
-	// callback function for window enumeration
-	private static bool Callback(int hWnd, int lparam)
-	{
-		int length = User32.GetWindowTextLength((IntPtr)hWnd);
-		if (length > 0)
+		internal static Desktop FromIndex(int index)
 		{
-			StringBuilder sb = new StringBuilder(length + 1);
-			if (User32.GetWindowText((IntPtr)hWnd, sb, sb.Capacity) > 0)
-			{ 
-				WindowInformationList.Add(
-					new WindowInformation(hWnd, sb.ToString()));
+			return new Desktop(DesktopManager.GetDesktop(index));
+		}
+
+		internal void MakeVisible()
+		{ 
+			var programManager = CacheManager.GetProgramManager();
+			var desktopThreadId = CacheManager.GetDesktopThreadId();
+			int dummy;
+
+			if (programManager == null)
+			{
+				programManager = FindFirstWindow("Program Manager");
+				CacheManager.SetProgramManager(programManager);
 			}
-		}
-		return true;
-	}
 
-	// find first window with string in title
-	private static WindowInformation FindFirstWindow(string title)
-	{
-		WindowInformationList = new List<WindowInformation>();
-		User32.EnumWindows(callBackPtr, IntPtr.Zero);
-		WindowInformation result = WindowInformationList.First(
-			x => x.Title == title);
-		return result;
+			if (desktopThreadId == 0)
+			{
+				desktopThreadId = User32.GetWindowThreadProcessId(
+					new IntPtr(programManager.Handle), out dummy);
+				CacheManager.SetDesktopThreadId(desktopThreadId);
+			}
+
+			var foregroundThreadId = User32.GetWindowThreadProcessId(
+				User32.GetForegroundWindow(), out dummy);
+			var currentThreadId = Kernel32.GetCurrentThreadId();
+
+			// activate window in new virtual desktop
+			if (foregroundThreadId != 0 &&
+				foregroundThreadId != currentThreadId)
+			{
+				User32.AttachThreadInput(desktopThreadId, currentThreadId, true);
+				User32.AttachThreadInput(foregroundThreadId, currentThreadId, true);
+				User32.SetForegroundWindow(new IntPtr(programManager.Handle));
+				User32.AttachThreadInput(foregroundThreadId, currentThreadId, false);
+				User32.AttachThreadInput(desktopThreadId, currentThreadId, false);
+			}
+
+			DesktopManager.VirtualDesktopManagerInternal.SwitchDesktop(Instance);
+		}
+
+		private static WindowInformation FindFirstWindow(string title)
+		{
+			var WindowInformationList = new List<WindowInformation>();
+			User32.EnumWindows((hWnd, lParam) => 
+			{
+				int length = User32.GetWindowTextLength((IntPtr) hWnd);
+				if (length > 0)
+				{
+					StringBuilder sb = new StringBuilder(length + 1);
+					if (User32.GetWindowText((IntPtr) hWnd, sb, sb.Capacity) > 0)
+					{ 
+						WindowInformationList.Add(
+							new WindowInformation(hWnd, sb.ToString()));
+					}
+				}
+				return true;
+			}, IntPtr.Zero);
+			WindowInformation result = WindowInformationList.Find(
+				x => x.Title == title);
+			return result;
+		}
 	}
 }
+
