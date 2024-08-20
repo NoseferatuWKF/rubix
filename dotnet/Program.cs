@@ -1,8 +1,8 @@
-﻿using VDM;
+using VDM;
 using WinAPI;
 
-const UInt16 ASCII_OFFSET = 48; // 0
-const UInt16 DESKTOP_LIMIT = 9;
+const Byte ASCII_OFFSET = 48; // 0
+const Byte DESKTOP_LIMIT = 9;
 
 // Loop over existing virtual desktops and registers hotkey for each index
 var desktops = DesktopManager.VirtualDesktopManagerInternal.GetCount(); 
@@ -17,8 +17,9 @@ while (desktops < DESKTOP_LIMIT)
 // remove desktops from last index until limit
 while (desktops > DESKTOP_LIMIT)
 {
+	var index = (Byte) (desktops - 1);
 	DesktopManager.VirtualDesktopManagerInternal.RemoveDesktop(
-		DesktopManager.GetDesktop(desktops - 1),
+		DesktopManager.GetDesktop(index),
 		DesktopManager.GetDesktop(0));
 	desktops--;
 }
@@ -49,14 +50,16 @@ for (UInt32 i = 1; i <= DESKTOP_LIMIT; ++i)
 }
 
 // polling windows message queue and filter it by the registered hotkey
-while (User32.GetMessage(out var msg, IntPtr.Zero, MOD.HOTKEY, MOD.HOTKEY))
+User32.Msg msg;
+while (User32.GetMessage(out msg, IntPtr.Zero, MOD.HOTKEY, MOD.HOTKEY))
 {
-	var hotkey = (Int32) (msg.WParam - 1);
+	var hotkey = (Byte) (msg.WParam - 1);
 	if (hotkey < DESKTOP_LIMIT)
 	{
 		DesktopManager.SwitchDesktop(hotkey);
 	} else
 	{
-		DesktopManager.MoveActiveWindow(hotkey - DESKTOP_LIMIT);
+		var index = (Byte) (hotkey - DESKTOP_LIMIT);
+		DesktopManager.MoveActiveWindow(index);
 	}
 }

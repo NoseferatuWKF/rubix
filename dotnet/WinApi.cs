@@ -54,6 +54,7 @@ internal interface IVirtualDesktopManagerInternal
 	Int32 GetAdjacentDesktop(IVirtualDesktop from, Int32 direction, out IVirtualDesktop desktop);
 	void SwitchDesktop(IVirtualDesktop desktop);
 	IVirtualDesktop CreateDesktop();
+	void MoveDesktop(IVirtualDesktop desktop, Int32 nIndex);
 	void RemoveDesktop(IVirtualDesktop desktop, IVirtualDesktop fallback);
 }
 
@@ -72,7 +73,7 @@ internal interface IVirtualDesktopManager
 internal interface IObjectArray
 {
 	void GetCount(out Int32 count);
-	void GetAt(Int32 index, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out Object obj);
+	void GetAt(Byte index, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IVirtualDesktop obj);
 }
 
 // https://learn.microsoft.com/en-us/windows/win32/api/servprov/nn-servprov-iserviceprovider
@@ -129,12 +130,6 @@ internal sealed class User32
 	[return: MarshalAs(UnmanagedType.Bool)]
 	internal static extern Boolean SetForegroundWindow(IntPtr hWnd);
 
-	internal delegate Boolean CallBackPtr(Int32 hwnd, Int32 lParam);
-	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows
-	[DllImport("User32.dll", SetLastError = true)]
-	[return: MarshalAs(UnmanagedType.Bool)]
-	internal static extern Boolean EnumWindows(CallBackPtr lpEnumFunc, IntPtr lParam);
-
 	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowtextlengtha
 	[DllImport("User32.dll", CharSet = CharSet.Auto, SetLastError = true)]
 	internal static extern Int32 GetWindowTextLength(IntPtr hWnd);
@@ -142,6 +137,10 @@ internal sealed class User32
 	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowtexta
 	[DllImport("User32.dll", CharSet = CharSet.Auto, SetLastError = true)]
 	internal static extern Int32 GetWindowText(IntPtr hWnd, StringBuilder lpString, Int32 nMaxCount);
+
+	// https://learn.microsoft.com/en-us/windows/win33/api/winuser/nf-winuser-findwindowa
+	[DllImport("User32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+	internal static extern Int32 FindWindow(String lpClassName, String lpWindowName);
 }
 
 internal sealed class Kernel32

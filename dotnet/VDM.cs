@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 using WinAPI;
 
 namespace VDM;
@@ -31,31 +30,26 @@ internal static class DesktopManager
 				typeof(IApplicationViewCollection).GUID);
 	}
 
-	internal static IVirtualDesktop GetDesktop(int index)
+	internal static IVirtualDesktop GetDesktop(Byte index)
 	{
-		var count = VirtualDesktopManagerInternal.GetCount();
-		
-		ArgumentOutOfRangeException.ThrowIfNegative(index);
-		ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, count);
-
-		var desktops = CacheManager.GetDesktops();
-		object objdesktop;
+		var desktops = CacheManager.Desktops;
+		IVirtualDesktop objdesktop;
 		if (desktops == null)
 		{
 			VirtualDesktopManagerInternal.GetDesktops(out desktops);
-			CacheManager.SetDesktops(desktops);
+			CacheManager.Desktops = desktops;
 		}
 		desktops.GetAt(index, typeof(IVirtualDesktop).GUID, out objdesktop);
 
-		return (IVirtualDesktop) objdesktop;
+		return objdesktop;
 	}
 
-	internal static void SwitchDesktop(int index)
+	internal static void SwitchDesktop(Byte index)
 	{
 		Desktop.FromIndex(index).MakeVisible();
 	}
 
-	internal static void MoveActiveWindow(int index)
+	internal static void MoveActiveWindow(Byte index)
 	{
 		var hWnd = User32.GetForegroundWindow();
 
@@ -70,8 +64,6 @@ internal static class DesktopManager
 		}
 	}
 
-	public sealed record WindowInformation(int Handle, string Title);
-
 	private sealed class Desktop
 	{
 		private static IVirtualDesktop Instance;
@@ -81,32 +73,23 @@ internal static class DesktopManager
 			Desktop.Instance = desktop; 
 		}
 
-		internal static Desktop FromIndex(int index)
+		internal static Desktop FromIndex(Byte index)
 		{
 			return new Desktop(DesktopManager.GetDesktop(index));
 		}
 
 		internal void MakeVisible()
 		{ 
-			var programManager = CacheManager.GetProgramManager();
-			var desktopThreadId = CacheManager.GetDesktopThreadId();
-			int dummy;
+			var programManager = CacheManager.ProgramManager;
 
 			if (programManager == null)
 			{
-				programManager = FindFirstWindow("Program Manager");
-				CacheManager.SetProgramManager(programManager);
+				programManager = LocateProgramManager();
 			}
 
-			if (desktopThreadId == 0)
-			{
-				desktopThreadId = User32.GetWindowThreadProcessId(
-					new IntPtr(programManager.Handle), out dummy);
-				CacheManager.SetDesktopThreadId(desktopThreadId);
-			}
-
+			var desktopThreadId = programManager.ThreadId;
 			var foregroundThreadId = User32.GetWindowThreadProcessId(
-				User32.GetForegroundWindow(), out dummy);
+				User32.GetForegroundWindow(), out var _lpdwProcessId);
 			var currentThreadId = Kernel32.GetCurrentThreadId();
 
 			// activate window in new virtual desktop
@@ -115,7 +98,7 @@ internal static class DesktopManager
 			{
 				User32.AttachThreadInput(desktopThreadId, currentThreadId, true);
 				User32.AttachThreadInput(foregroundThreadId, currentThreadId, true);
-				User32.SetForegroundWindow(new IntPtr(programManager.Handle));
+				User32.SetForegroundWindow(programManager.Handle);
 				User32.AttachThreadInput(foregroundThreadId, currentThreadId, false);
 				User32.AttachThreadInput(desktopThreadId, currentThreadId, false);
 			}
@@ -123,26 +106,17 @@ internal static class DesktopManager
 			DesktopManager.VirtualDesktopManagerInternal.SwitchDesktop(Instance);
 		}
 
-		private static WindowInformation FindFirstWindow(string title)
+		// set cache and return
+		private static ProgramManager LocateProgramManager()
 		{
-			var WindowInformationList = new List<WindowInformation>();
-			User32.EnumWindows((hWnd, lParam) => 
-			{
-				int length = User32.GetWindowTextLength((IntPtr) hWnd);
-				if (length > 0)
-				{
-					StringBuilder sb = new StringBuilder(length + 1);
-					if (User32.GetWindowText((IntPtr) hWnd, sb, sb.Capacity) > 0)
-					{ 
-						WindowInformationList.Add(
-							new WindowInformation(hWnd, sb.ToString()));
-					}
-				}
-				return true;
-			}, IntPtr.Zero);
-			WindowInformation result = WindowInformationList.Find(
-				x => x.Title == title);
-			return result;
+			var hWnd = User32.FindWindow("Progman", null);
+			var desktopThreadId = User32.GetWindowThreadProcessId(
+					hWnd, out var _lpdwProcessId);
+			var programManager = new ProgramManager(
+					hWnd, desktopThreadId);
+			CacheManager.ProgramManager = programManager;
+
+			return programManager;
 		}
 	}
 }

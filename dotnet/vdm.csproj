@@ -1,13 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>1.1.0</Version>
+    <Authors>NoseferatuWKF</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Title>VDM</Title>
+    <Description>Improved virtual desktop navigation on Windows 10/11</Description>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>win-x86</RuntimeIdentifier>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
+    <TargetFramework>net8.0</TargetFramework>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishSelfContained>true</PublishSelfContained>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
 
 </Project>
