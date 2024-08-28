@@ -15,7 +15,6 @@ If the program crashes by any chance, just re-run it again, if it is intermitten
 ## Build from source
 The project is using .NET 8, could work with some previous/latest versions but have not done the full validation yet.
 Basically with .NET SDK installed, go to the dotnet root folder, and run `dotnet build -c Release`
-There is also an incomplete version in C++, but I am having issues with building it on a company laptop due to the anti-virus and some cybersecurity policies, so probably will never finish it
 
 ## Keymaps
 ```
