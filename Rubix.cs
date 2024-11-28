@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using WinAPI;
 
-namespace VDM;
+namespace Rubix;
 
 internal static class DesktopManager
 {

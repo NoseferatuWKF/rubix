@@ -1,6 +1,6 @@
 ﻿using WinAPI;
 
-namespace VDM;
+namespace Rubix;
 
 internal static class CacheManager
 {

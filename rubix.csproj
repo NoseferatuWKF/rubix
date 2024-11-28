@@ -4,7 +4,7 @@
     <Version>1.1.0</Version>
     <Authors>NoseferatuWKF</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Title>VDM</Title>
+    <Title>Rubix</Title>
     <Description>Improved virtual desktop navigation on Windows 10/11</Description>
     <OutputType>WinExe</OutputType>
     <RuntimeIdentifier>win-x86</RuntimeIdentifier>
