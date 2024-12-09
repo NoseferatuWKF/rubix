@@ -35,14 +35,14 @@ internal interface IApplicationViewCollection
 
 [ComImport]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-[Guid("3F07F4BE-B107-441A-AF0F-39D82529072C")]
+[Guid("FF72FFDD-BE7E-43FC-9C03-AD81681E88E4")]
 internal interface IVirtualDesktop
 {
 }
 
 [ComImport]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-[Guid("53F5CA0B-158F-4124-900C-057158060B27")]
+[Guid("F31574D6-B682-4CDC-BD56-1827860ABEC6")]
 internal interface IVirtualDesktopManagerInternal
 {
 	Int32 GetCount();
